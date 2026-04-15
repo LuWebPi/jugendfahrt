@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jugendfahrt FFB (Supabase)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Supabase Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        .page-view { display: none; }
+        .page-view.active { display: block !important; }
+        button, .clickable { cursor: pointer !important; touch-action: manipulation; user-select: none; }
+        * { -webkit-tap-highlight-color: transparent; }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen font-sans">
+
+    <!-- Navigation -->
+    <nav class="bg-blue-600 text-white shadow-xl sticky top-0 z-[9999]">
+        <div class="max-w-5xl mx-auto px-4 flex justify-between items-center h-16">
+            <div onclick="appNavigate('home')" class="flex items-center space-x-2 clickable py-2">
+                <i class="fa-solid fa-campground"></i>
+                <span class="font-bold">FFB Fahrt</span>
+            </div>
+            
+            <div class="hidden md:flex items-center space-x-2">
+                <button onclick="appNavigate('home')" class="px-4 py-2 hover:bg-blue-700 rounded-lg transition">Start</button>
+                <button onclick="appNavigate('calendar')" class="px-4 py-2 hover:bg-blue-700 rounded-lg transition">Kalender</button>
+                <button id="nav-admin" onclick="appNavigate('admin')" class="hidden text-yellow-300 px-4 py-2 hover:bg-blue-700 rounded-lg">Admin</button>
+                <button id="nav-login" onclick="appNavigate('login')" class="bg-white text-blue-600 px-6 py-2 rounded-full font-bold ml-4 shadow-md active:scale-95 transition">Login</button>
+                <button id="nav-logout" onclick="appLogout()" class="hidden bg-red-500 px-6 py-2 rounded-full font-bold ml-4 shadow-md active:scale-95 transition">Logout</button>
+            </div>
+
+            <button onclick="toggleMobile()" class="md:hidden p-2 clickable">
+                <i class="fa-solid fa-bars text-2xl"></i>
+            </button>
+        </div>
+        
+        <div id="mobile-menu" class="hidden bg-blue-700 w-full flex flex-col md:hidden border-t border-blue-500 shadow-2xl">
+            <button onclick="appNavigate('home')" class="p-5 text-left border-b border-blue-600">Startseite</button>
+            <button onclick="appNavigate('calendar')" class="p-5 text-left border-b border-blue-600">Terminkalender</button>
+            <button id="nav-admin-m" onclick="appNavigate('admin')" class="hidden text-yellow-300 p-5 text-left border-b border-blue-600">Admin</button>
+            <button id="nav-login-m" onclick="appNavigate('login')" class="p-5 text-left font-bold">Anmelden</button>
+            <button id="nav-logout-m" onclick="appLogout()" class="hidden text-red-300 p-5 text-left">Abmelden</button>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto p-4 md:p-8">
+        
+        <div id="connection-error" class="hidden bg-red-100 border-2 border-red-200 text-red-700 p-4 rounded-2xl mb-6 text-center">
+            <p class="font-bold">Supabase Verbindung fehlt!</p>
+            <p class="text-sm">Trage URL und Key im Code ein.</p>
+        </div>
+
+        <!-- HOME -->
+        <section id="view-home" class="page-view active">
+            <div class="bg-white p-12 rounded-[2rem] shadow-sm text-center border border-slate-200">
+                <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 text-3xl">
+                    <i class="fa-solid fa-rocket"></i>
+                </div>
+                <h1 class="text-4xl font-black text-slate-800 mb-4 text-balance">Jugendfahrt FFB</h1>
+                <p class="text-slate-500 mb-10 text-lg max-w-sm mx-auto">Jetzt mit Supabase Power.</p>
+                <button onclick="appNavigate('calendar')" class="bg-blue-600 text-white px-12 py-5 rounded-2xl font-bold text-xl shadow-xl active:scale-95 transition-all">Zum Kalender</button>
+            </div>
+        </section>
+
+        <!-- KALENDER -->
+        <section id="view-calendar" class="page-view">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-extrabold text-slate-800">Termine</h2>
+                <button id="btn-new-event" onclick="toggleForm()" class="hidden bg-green-500 text-white px-6 py-3 rounded-2xl font-bold shadow-lg">+ Hinzufügen</button>
+            </div>
+            
+            <div id="event-form" class="hidden bg-white p-8 rounded-[2rem] shadow-xl mb-8 border-2 border-blue-50">
+                <div class="space-y-4">
+                    <input type="text" id="in-title" placeholder="Was steht an?" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none">
+                    <input type="datetime-local" id="in-date" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none">
+                    <textarea id="in-desc" placeholder="Details..." class="w-full p-4 bg-slate-50 border rounded-2xl outline-none" rows="3"></textarea>
+                    <button onclick="saveEvent()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg">Speichern</button>
+                </div>
+            </div>
+
+            <div id="list-events" class="grid gap-4">
+                <div class="flex flex-col items-center py-20 text-slate-400">
+                    <div class="loading-spinner mb-4"></div>
+                    <p>Lade Termine...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- LOGIN -->
+        <section id="view-login" class="page-view">
+            <div class="max-w-md mx-auto bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100 mt-10">
+                <h2 class="text-2xl font-black mb-8 text-center text-slate-800">Anmelden</h2>
+                <div class="space-y-6">
+                    <input type="text" id="log-u" placeholder="Nutzername" class="w-full p-5 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-blue-500 outline-none text-lg">
+                    <input type="password" id="log-p" placeholder="Passwort" class="w-full p-5 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-blue-500 outline-none text-lg">
+                    <button onclick="tryLogin(event)" class="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all">EINLOGGEN</button>
+                    <p id="login-status" class="text-center text-red-500 font-bold hidden py-3 bg-red-50 rounded-2xl">Login fehlgeschlagen!</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ADMIN -->
+        <section id="view-admin" class="page-view">
+            <h2 class="text-2xl font-bold mb-6">Mitglieder</h2>
+            <div class="bg-white p-6 rounded-3xl border mb-6">
+                <h3 class="font-bold mb-4">Neuer Nutzer</h3>
+                <div class="flex flex-col gap-3">
+                    <input type="text" id="new-u" placeholder="Username" class="p-4 bg-slate-50 border rounded-xl">
+                    <input type="password" id="new-p" placeholder="Passwort" class="p-4 bg-slate-50 border rounded-xl">
+                    <button onclick="createUser()" class="bg-green-600 text-white py-4 rounded-xl font-bold">Anlegen</button>
+                </div>
+            </div>
+            <div id="list-users" class="bg-white rounded-3xl shadow-sm overflow-hidden divide-y border border-slate-200"></div>
+        </section>
+    </main>
+
+    <script>
+        // --- DEINE SUPABASE DATEN HIER EINTRAGEN ---
+        const SUPABASE_URL = "https://wskbqtcdgveaxwbkhozo.supabase.co"; 
+        const SUPABASE_KEY = "sb_publishable_FT9rXhU0pFXREqHnv9rEOg_20bmQ3jF";
+
+        let _supabase;
+        let userState = null;
+
+        window.appNavigate = (id) => {
+            document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
+            document.getElementById('view-' + id).classList.add('active');
+            document.getElementById('mobile-menu').classList.add('hidden');
+            window.scrollTo(0,0);
+        };
+
+        window.toggleMobile = () => document.getElementById('mobile-menu').classList.toggle('hidden');
+        window.toggleForm = () => document.getElementById('event-form').classList.toggle('hidden');
+
+        function updateUI() {
+            const isLogged = !!userState;
+            const isAdmin = userState && userState.role === 'admin';
+            document.getElementById('nav-login').style.display = isLogged ? 'none' : 'block';
+            document.getElementById('nav-login-m').style.display = isLogged ? 'none' : 'block';
+            document.getElementById('nav-logout').style.display = isLogged ? 'block' : 'none';
+            document.getElementById('nav-logout-m').style.display = isLogged ? 'block' : 'none';
+            document.getElementById('nav-admin').style.display = isAdmin ? 'block' : 'none';
+            document.getElementById('nav-admin-m').style.display = isAdmin ? 'block' : 'none';
+            document.getElementById('btn-new-event').style.display = isLogged ? 'block' : 'none';
+        }
+
+        window.appLogout = () => { userState = null; updateUI(); appNavigate('home'); };
+
+        window.tryLogin = async (e) => {
+            if(e) e.preventDefault();
+            const u = document.getElementById('log-u').value.trim().toLowerCase();
+            const p = document.getElementById('log-p').value;
+            
+            const { data, error } = await _supabase.from('users').select('*').eq('username', u).single();
+            
+            if (data && data.password === p) {
+                userState = data;
+                updateUI();
+                appNavigate('calendar');
+            } else {
+                document.getElementById('login-status').classList.remove('hidden');
+            }
+        };
+
+        window.saveEvent = async () => {
+            const t = document.getElementById('in-title').value;
+            if(!t || !userState) return;
+            await _supabase.from('events').insert([
+                { title: t, date: document.getElementById('in-date').value, description: document.getElementById('in-desc').value, created_by: userState.username }
+            ]);
+            document.getElementById('in-title').value = '';
+            toggleForm();
+            loadEvents();
+        };
+
+        window.deleteEvent = async (id) => {
+            if(confirm("Löschen?")) {
+                await _supabase.from('events').delete().eq('id', id);
+                loadEvents();
+            }
+        };
+
+        window.createUser = async () => {
+            const u = document.getElementById('new-u').value.trim().toLowerCase();
+            const p = document.getElementById('new-p').value;
+            await _supabase.from('users').insert([{ username: u, password: p, role: 'user' }]);
+            alert("Erstellt!");
+            loadUsers();
+        };
+
+        async function loadEvents() {
+            const { data } = await _supabase.from('events').select('*').order('date', { ascending: true });
+            const list = document.getElementById('list-events');
+            if(!data || data.length === 0) {
+                list.innerHTML = "<p class='text-center py-10 text-slate-400'>Keine Termine.</p>";
+                return;
+            }
+            list.innerHTML = data.map(ev => {
+                const canDel = userState && (userState.role === 'admin' || userState.username === ev.created_by);
+                const d = ev.date ? new Date(ev.date).toLocaleString('de-DE', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : 'Demnächst';
+                return `
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex justify-between items-center">
+                    <div>
+                        <span class="text-blue-600 font-bold text-xs uppercase">${d}</span>
+                        <h3 class="text-xl font-bold text-slate-800">${ev.title}</h3>
+                        <p class="text-slate-500">${ev.description || ''}</p>
+                    </div>
+                    ${canDel ? `<button onclick="deleteEvent(${ev.id})" class="text-red-300 p-4"><i class="fa-solid fa-trash-can"></i></button>` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        async function loadUsers() {
+            const { data } = await _supabase.from('users').select('*');
+            const list = document.getElementById('list-users');
+            list.innerHTML = data.map(u => `
+                <div class="p-4 flex justify-between items-center bg-white">
+                    <span class="font-bold">${u.username} <small class="text-slate-400">(${u.role})</small></span>
+                </div>
+            `).join('');
+        }
+
+        window.onload = async function() {
+            if (SUPABASE_URL === "DEINE_SUPABASE_URL") {
+                document.getElementById('connection-error').classList.remove('hidden');
+                return;
+            }
+            _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            loadEvents();
+            loadUsers();
+            
+            // Realtime Update (Optional)
+            _supabase.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => loadEvents()).subscribe();
+        };
+    </script>
+</body>
+</html>
